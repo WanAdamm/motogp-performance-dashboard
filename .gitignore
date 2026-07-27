@@ -1,0 +1,40 @@
+# Local environments and secrets
+.venv/
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+.agents
+AGENTS.md
+
+# Python caches and tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Build and package output
+build/
+dist/
+*.egg-info/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Source documents and generated data
+/SPA 2025/
+/data/raw/
+/data/interim/
+/data/processed/
+*.parquet
+*.duckdb
+*.duckdb.wal
+
+# Local editor and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
