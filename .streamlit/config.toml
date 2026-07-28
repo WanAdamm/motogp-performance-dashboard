@@ -1,0 +1,47 @@
+[theme]
+base = "light"
+baseRadius = "none"
+buttonRadius = "none"
+showSidebarBorder = true
+
+[theme.light]
+primaryColor = "#1457d9"
+backgroundColor = "#f4f7f5"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#18262f"
+borderColor = "#c3d0d4"
+dataframeHeaderBackgroundColor = "#e9eff0"
+showWidgetBorder = true
+font = "Aptos, Segoe UI, sans-serif"
+headingFont = "Bahnschrift, Arial Narrow, sans-serif"
+codeFont = "Cascadia Mono, Consolas, monospace"
+redColor = "#e13b32"
+yellowColor = "#f2c14e"
+blueColor = "#1457d9"
+
+[theme.light.sidebar]
+backgroundColor = "#e9eff0"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#18262f"
+borderColor = "#b8c7cb"
+
+[theme.dark]
+primaryColor = "#78a8ff"
+backgroundColor = "#09141a"
+secondaryBackgroundColor = "#10232c"
+textColor = "#e7eff1"
+borderColor = "#2b4651"
+dataframeHeaderBackgroundColor = "#0c1b22"
+showWidgetBorder = true
+font = "Aptos, Segoe UI, sans-serif"
+headingFont = "Bahnschrift, Arial Narrow, sans-serif"
+codeFont = "Cascadia Mono, Consolas, monospace"
+redColor = "#ff6b62"
+yellowColor = "#f4c95d"
+blueColor = "#78a8ff"
+
+[theme.dark.sidebar]
+backgroundColor = "#0c1b22"
+secondaryBackgroundColor = "#10232c"
+textColor = "#e7eff1"
+borderColor = "#28414b"

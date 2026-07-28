@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import fitz
+import pandas as pd
 import pytest
 from streamlit.testing.v1 import AppTest
 
@@ -12,6 +13,7 @@ from motogp_analytics import (
     discover_sessions,
     format_time,
     load_laps,
+    matched_lap_deltas,
     parse_pdf,
     parse_time,
     rider_summary,
@@ -104,6 +106,18 @@ def test_time_conversion_and_url() -> None:
     assert format_time(-0.00001) == "0.000"
     with pytest.raises(ValueError, match="Invalid event code"):
         analysis_url(2025, "../outside", "SPR")
+
+
+def test_matched_lap_deltas_use_shared_laps_and_a_minus_b() -> None:
+    laps = pd.DataFrame(
+        {
+            "rider": ["A", "A", "B", "B"],
+            "lap": [1, 2, 2, 3],
+            "lap_time_seconds": [100.0, 99.1, 99.4, 99.0],
+        }
+    )
+    comparison = matched_lap_deltas(laps, "A", "B")
+    assert comparison[["lap", "delta"]].to_dict("records") == [{"lap": 2, "delta": -0.3}]
 
 
 def test_synthetic_pipeline_is_self_contained(tmp_path: Path, synthetic_session) -> None:

@@ -7,9 +7,13 @@ from .core import (
     format_time,
     ingest,
     load_laps,
+    load_session_metadata,
+    matched_lap_deltas,
+    pace_leaders,
     parse_pdf,
     parse_time,
     rider_summary,
+    sector_deficits,
     select_scope,
 )
 
@@ -20,8 +24,12 @@ __all__ = [
     "format_time",
     "ingest",
     "load_laps",
+    "load_session_metadata",
+    "matched_lap_deltas",
+    "pace_leaders",
     "parse_pdf",
     "parse_time",
     "rider_summary",
+    "sector_deficits",
     "select_scope",
 ]
