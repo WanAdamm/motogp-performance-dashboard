@@ -361,7 +361,9 @@ Interquartile Range
 Coefficient of Variation
 ```
 
-A normalized **Consistency Score** may later be created for easier comparison between riders.
+The dashboard reports a session-relative **Consistency Score** for riders with at least three
+laps. It maps the tightest eligible IQR to 100 and the widest to 0; tied eligible riders score
+100.
 
 ---
 

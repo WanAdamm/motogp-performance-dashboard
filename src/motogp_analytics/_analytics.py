@@ -19,6 +19,7 @@ SUMMARY_COLUMNS = [
     "q1",
     "q3",
     "iqr",
+    "consistency_score",
     "top_speed",
     "best_t1",
     "best_t2",
@@ -86,11 +87,21 @@ def rider_summary(laps: pd.DataFrame, *, scope: str = "clean") -> pd.DataFrame:
                 "potential_lost": round(theoretical_reference - theoretical, 3),
             }
         )
-    return (
+    summary = (
         pd.DataFrame(rows, columns=SUMMARY_COLUMNS)
         .sort_values("median", na_position="last")
         .reset_index(drop=True)
     )
+    eligible = summary["laps"] >= 3
+    eligible_iqrs = summary.loc[eligible, "iqr"]
+    if not eligible_iqrs.empty:
+        iqr_span = eligible_iqrs.max() - eligible_iqrs.min()
+        summary.loc[eligible, "consistency_score"] = (
+            100.0
+            if iqr_span == 0
+            else (100 * (eligible_iqrs.max() - eligible_iqrs) / iqr_span).round(1)
+        )
+    return summary
 
 
 def select_scope(laps: pd.DataFrame, scope: str) -> pd.DataFrame:

@@ -19,7 +19,8 @@ from motogp_analytics import (
     rider_summary,
     select_scope,
 )
-from motogp_analytics.core import save_session
+from motogp_analytics._parsing import _parse_rider_header, _rows
+from motogp_analytics.core import detect_session, save_session
 
 ROOT = Path(__file__).parents[1]
 SAMPLES = ROOT / "SPA 2025"
@@ -72,6 +73,17 @@ def make_synthetic_sprint(path: Path) -> Path:
 
     add_run(258, 1, [(1, 100.0), (2, 98.0), (3, 97.9)])
     add_run(332, 2, [(4, 98.1), (5, 98.2), (6, 98.3)], missing_speed=6)
+
+    add(36, 430, "2nd", 12)
+    add(68, 430, "73", 12)
+    add(91, 430, "Alex MARQUEZ", 10)
+    add(206, 430, "DUCATI", 9)
+    add(273, 430, "SPA", 9)
+    add(91, 442, "BK8 Gresini Racing MotoGP", 8)
+    add(91, 455, "Runs=2 Total laps=6 Full laps=4 Valid laps=4", 8)
+    add_run(468, 1, [(1, 100.5), (2, 98.5), (3, 98.4)])
+    add_run(542, 2, [(4, 98.6), (5, 98.7), (6, 98.8)])
+
     document.save(path)
     document.close()
     return path
@@ -108,6 +120,37 @@ def test_time_conversion_and_url() -> None:
         analysis_url(2025, "../outside", "SPR")
 
 
+def test_detect_session_accepts_standalone_grand_prix() -> None:
+    with fitz.open() as document:
+        page = document.new_page()
+        page.insert_text((30, 70), "GRAND PRIX OF HUNGARY")
+        page.insert_text((30, 90), "GRAND PRIX")
+        assert detect_session(document) == "RAC"
+
+
+def test_coordinate_helpers_allow_minor_font_box_offsets() -> None:
+    row = [
+        (35.0, 100.61, 45.0, 108.0, "2"),
+        (55.0, 100.0, 90.0, 108.0, "1'40.273"),
+        (110.0, 100.61, 135.0, 108.0, "29.771"),
+    ]
+    assert list(_rows(row).values()) == [row]
+
+    position = (36.0, 10.0, 55.0, 12.0, "1st")
+    header = _parse_rider_header(
+        [
+            position,
+            (68.0, 10.0, 82.0, 12.0, "93"),
+            (91.0, 8.0, 155.0, 10.0, "Marc MARQUEZ"),
+            (205.0, 8.38, 250.0, 10.0, "DUCATI"),
+            (270.0, 8.38, 288.0, 10.0, "SPA"),
+            (91.0, 18.0, 190.0, 20.0, "Ducati Lenovo Team"),
+        ],
+        position,
+    )
+    assert (header["constructor"], header["nationality"]) == ("DUCATI", "SPA")
+
+
 def test_matched_lap_deltas_use_shared_laps_and_a_minus_b() -> None:
     laps = pd.DataFrame(
         {
@@ -120,9 +163,48 @@ def test_matched_lap_deltas_use_shared_laps_and_a_minus_b() -> None:
     assert comparison[["lap", "delta"]].to_dict("records") == [{"lap": 2, "delta": -0.3}]
 
 
+def test_consistency_score_normalizes_eligible_rider_iqrs() -> None:
+    rows = []
+    for rider_number, rider, times in [
+        (1, "A", [100.0, 101.0, 102.0]),
+        (2, "B", [100.0, 102.0, 104.0]),
+        (3, "C", [100.0, 103.0, 106.0]),
+        (4, "D", [100.0, 110.0]),
+    ]:
+        for lap_time in times:
+            rows.append(
+                {
+                    "rider_number": rider_number,
+                    "rider": rider,
+                    "team": rider,
+                    "constructor": rider,
+                    "lap_time_seconds": lap_time,
+                    "official_valid": True,
+                    "sector_sum_ok": True,
+                    "classification": "CLEAN",
+                    "speed": 300.0,
+                    "t1": 25.0,
+                    "t2": 25.0,
+                    "t3": 25.0,
+                    "t4": 25.0,
+                }
+            )
+
+    laps = pd.DataFrame(rows)
+    summary = rider_summary(laps)
+    scores = summary.set_index("rider")["consistency_score"]
+
+    assert summary.columns.get_loc("consistency_score") == summary.columns.get_loc("iqr") + 1
+    assert scores.loc[["A", "B", "C"]].tolist() == pytest.approx([100.0, 50.0, 0.0])
+    assert pd.isna(scores["D"])
+
+    single_eligible = rider_summary(laps[laps["rider"].isin(["A", "D"])]).set_index("rider")
+    assert single_eligible.loc["A", "consistency_score"] == 100.0
+
+
 def test_synthetic_pipeline_is_self_contained(tmp_path: Path, synthetic_session) -> None:
     parsed = synthetic_session
-    assert (len(parsed.laps), len(parsed.runs), len(parsed.partials)) == (6, 2, 0)
+    assert (len(parsed.laps), len(parsed.runs), len(parsed.partials)) == (12, 4, 0)
     assert parsed.quality["parser_warnings"] == []
     assert set(parsed.runs["front_tyre"]) == {"Wet-Medium"}
     assert parsed.laps.query("lap == 1").iloc[0]["classification"] == "OPENING_LAP"
@@ -133,7 +215,7 @@ def test_synthetic_pipeline_is_self_contained(tmp_path: Path, synthetic_session)
 
     destination = save_session(parsed, tmp_path)
     save_session(parsed, tmp_path)
-    assert len(load_laps(destination)) == 6
+    assert len(load_laps(destination)) == 12
     assert discover_sessions(tmp_path) == [destination]
     assert not list(destination.parent.glob(".session=SPR.backup-*"))
     assert rider_summary(load_laps(destination)).iloc[0]["rider"] == "Marc MARQUEZ"
@@ -221,3 +303,28 @@ def test_streamlit_dashboard_smoke(tmp_path: Path, synthetic_session, monkeypatc
     app = AppTest.from_file(ROOT / "dashboard" / "app.py").run(timeout=30)
     assert not app.exception
     assert len(app.tabs) == 4
+    assert app.toggle[0].label == "Use race time format"
+    assert not app.toggle[0].value
+
+    comparison = next(
+        frame.value for frame in app.dataframe if "fastest (seconds)" in frame.value.index
+    )
+    assert comparison.index.tolist() == [
+        "laps (count)",
+        "fastest (seconds)",
+        "median (seconds)",
+        "iqr (seconds)",
+        "consistency_score (0-100)",
+        "theoretical_best (seconds)",
+        "potential_lost (seconds)",
+        "top_speed (km/h)",
+    ]
+    assert comparison.loc["fastest (seconds)", "Marc MARQUEZ"] == "97.900"
+
+    app = app.toggle[0].set_value(True).run(timeout=30)
+    assert not app.exception
+    race_comparison = next(
+        frame.value for frame in app.dataframe if "fastest (race format)" in frame.value.index
+    )
+    assert "iqr (race format)" in race_comparison.index
+    assert race_comparison.loc["fastest (race format)", "Marc MARQUEZ"] == "1'37.900"

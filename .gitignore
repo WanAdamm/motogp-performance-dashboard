@@ -4,8 +4,11 @@
 .env.*
 !.env.example
 .streamlit/secrets.toml
-.agents
-AGENTS.md
+
+# Coding-agent configuration
+/.agents/
+/AGENTS.md
+/skills-lock.json
 
 # Python caches and tooling
 __pycache__/

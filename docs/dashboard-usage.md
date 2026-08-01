@@ -131,8 +131,15 @@ sector potential, not a lap the rider necessarily could have assembled in practi
 
 ## Head-to-Head
 
-Choose two riders to compare their lap count, fastest lap, median, IQR, theoretical best,
-potential lost, and top speed.
+Choose two riders to compare their lap count, fastest lap, median, IQR, consistency score,
+theoretical best, potential lost, and top speed.
+
+The consistency score normalizes riders with at least three laps against the selected session.
+The tightest eligible IQR scores 100, the widest scores 0, and tied eligible riders score 100.
+
+Timing rows default to three-decimal seconds. Enable **Use race time format** to display them in
+motorsport notation such as `1'37.123`. Row labels identify counts, the 0-100 consistency scale,
+and top speed in km/h. The lap-delta chart remains in seconds.
 
 The lap-delta chart calculates:
 

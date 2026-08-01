@@ -66,6 +66,12 @@ def timing_card(label: str, value: str, detail: str, tone: str = "") -> None:
     )
 
 
+def format_number(value: float | None, decimals: int) -> str:
+    if value is None or pd.isna(value):
+        return "—"
+    return f"{float(value):.{decimals}f}"
+
+
 sessions = discover_sessions(DATA_ROOT)
 if not sessions:
     st.markdown(
@@ -252,6 +258,10 @@ with compare_tab:
         left, right = st.columns(2)
         rider_a = left.selectbox("Rider A", comparison_riders, index=0)
         rider_b = right.selectbox("Rider B", comparison_riders, index=1)
+        race_time_format = st.toggle(
+            "Use race time format",
+            help="Off displays timing values in seconds.",
+        )
         comparison = summary[summary["rider"].isin([rider_a, rider_b])].set_index("rider")
         comparison = comparison[
             [
@@ -259,11 +269,40 @@ with compare_tab:
                 "fastest",
                 "median",
                 "iqr",
+                "consistency_score",
                 "theoretical_best",
                 "potential_lost",
                 "top_speed",
             ]
-        ].T
+        ].T.astype(object)
+        timing_rows = ["fastest", "median", "iqr", "theoretical_best", "potential_lost"]
+        if race_time_format:
+            comparison.loc[timing_rows] = comparison.loc[timing_rows].map(format_time)
+            time_unit = "race format"
+        else:
+            comparison.loc[timing_rows] = comparison.loc[timing_rows].map(
+                lambda value: format_number(value, 3)
+            )
+            time_unit = "seconds"
+        comparison.loc["laps"] = comparison.loc["laps"].map(lambda value: format_number(value, 0))
+        comparison.loc["consistency_score"] = comparison.loc["consistency_score"].map(
+            lambda value: format_number(value, 1)
+        )
+        comparison.loc["top_speed"] = comparison.loc["top_speed"].map(
+            lambda value: format_number(value, 1)
+        )
+        comparison = comparison.rename(
+            index={
+                "laps": "laps (count)",
+                "fastest": f"fastest ({time_unit})",
+                "median": f"median ({time_unit})",
+                "iqr": f"iqr ({time_unit})",
+                "consistency_score": "consistency_score (0-100)",
+                "theoretical_best": f"theoretical_best ({time_unit})",
+                "potential_lost": f"potential_lost ({time_unit})",
+                "top_speed": "top_speed (km/h)",
+            }
+        )
         st.dataframe(comparison, width="stretch")
 
         comparison_deltas = matched_lap_deltas(selected_laps, rider_a, rider_b)

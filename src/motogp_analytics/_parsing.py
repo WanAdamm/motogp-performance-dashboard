@@ -37,9 +37,11 @@ TYRE_RE = re.compile(r"^(?:Slick|Wet)-")
 EVENT_TITLE_MARKERS = {
     "SPA": "GRAND PRIX OF SPAIN",
     "FRA": "GRAND PRIX OF FRANCE",
+    "HUN": "GRAND PRIX OF HUNGARY",
 }
 COLUMN_SPLIT = 297.5
 RIGHT_OFFSET = 272.2
+ROW_Y_TOLERANCE = 1.0
 
 Word = tuple[float, float, float, float, str]
 
@@ -62,6 +64,9 @@ def detect_session(document: fitz.Document) -> str:
     for title, code in SESSION_TITLES:
         if title in text:
             return code
+    # New race templates use this standalone label, while event titles contain it as a phrase.
+    if "GRAND PRIX" in {line.strip() for line in text.splitlines()}:
+        return "RAC"
     raise ValueError("Could not identify session from PDF title")
 
 
@@ -240,7 +245,7 @@ def _rows(words: list[Word]) -> dict[float, list[Word]]:
     rows: dict[float, list[Word]] = {}
     current_y: float | None = None
     for word in sorted(words, key=lambda value: (value[1], value[0])):
-        if current_y is None or abs(word[1] - current_y) > 0.5:
+        if current_y is None or abs(word[1] - current_y) > ROW_Y_TOLERANCE:
             current_y = word[1]
             rows[current_y] = []
         rows[current_y].append(word)
@@ -278,12 +283,12 @@ def _parse_rider_header(words: list[Word], position_word: Word) -> dict[str, Any
     constructor = " ".join(
         word[4]
         for word in sorted(words, key=lambda value: value[0])
-        if abs(word[1] - name_y) < 0.2 and 202 <= word[0] < 260
+        if abs(word[1] - name_y) <= 0.5 and 202 <= word[0] < 260
     )
     nationality = " ".join(
         word[4]
         for word in sorted(words, key=lambda value: value[0])
-        if abs(word[1] - name_y) < 0.2 and 260 <= word[0] < 292
+        if abs(word[1] - name_y) <= 0.5 and 260 <= word[0] < 292
     )
     team_rows = sorted(
         {word[1] for word in words if name_y + 5 <= word[1] <= name_y + 16 and 88 <= word[0] < 290}
