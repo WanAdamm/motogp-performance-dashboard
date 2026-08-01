@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import fitz
@@ -17,6 +18,7 @@ from motogp_analytics import (
     parse_pdf,
     parse_time,
     rider_summary,
+    select_full_session_riders,
     select_scope,
 )
 from motogp_analytics._parsing import _parse_rider_header, _rows
@@ -80,9 +82,9 @@ def make_synthetic_sprint(path: Path) -> Path:
     add(206, 430, "DUCATI", 9)
     add(273, 430, "SPA", 9)
     add(91, 442, "BK8 Gresini Racing MotoGP", 8)
-    add(91, 455, "Runs=2 Total laps=6 Full laps=4 Valid laps=4", 8)
+    add(91, 455, "Runs=2 Total laps=5 Full laps=3 Valid laps=3", 8)
     add_run(468, 1, [(1, 100.5), (2, 98.5), (3, 98.4)])
-    add_run(542, 2, [(4, 98.6), (5, 98.7), (6, 98.8)])
+    add_run(542, 2, [(4, 98.6), (5, 98.7)])
 
     document.save(path)
     document.close()
@@ -163,6 +165,20 @@ def test_matched_lap_deltas_use_shared_laps_and_a_minus_b() -> None:
     assert comparison[["lap", "delta"]].to_dict("records") == [{"lap": 2, "delta": -0.3}]
 
 
+def test_full_session_filter_keeps_only_riders_with_every_lap() -> None:
+    laps = pd.DataFrame(
+        {
+            "rider_number": [1, 1, 1, 2, 2, 3, 3],
+            "lap": [1, 2, 3, 1, 2, 1, 3],
+        }
+    )
+
+    filtered = select_full_session_riders(laps)
+
+    assert filtered["rider_number"].unique().tolist() == [1]
+    assert filtered["lap"].tolist() == [1, 2, 3]
+
+
 def test_consistency_score_normalizes_eligible_rider_iqrs() -> None:
     rows = []
     for rider_number, rider, times in [
@@ -204,7 +220,7 @@ def test_consistency_score_normalizes_eligible_rider_iqrs() -> None:
 
 def test_synthetic_pipeline_is_self_contained(tmp_path: Path, synthetic_session) -> None:
     parsed = synthetic_session
-    assert (len(parsed.laps), len(parsed.runs), len(parsed.partials)) == (12, 4, 0)
+    assert (len(parsed.laps), len(parsed.runs), len(parsed.partials)) == (11, 4, 0)
     assert parsed.quality["parser_warnings"] == []
     assert set(parsed.runs["front_tyre"]) == {"Wet-Medium"}
     assert parsed.laps.query("lap == 1").iloc[0]["classification"] == "OPENING_LAP"
@@ -215,7 +231,7 @@ def test_synthetic_pipeline_is_self_contained(tmp_path: Path, synthetic_session)
 
     destination = save_session(parsed, tmp_path)
     save_session(parsed, tmp_path)
-    assert len(load_laps(destination)) == 12
+    assert len(load_laps(destination)) == 11
     assert discover_sessions(tmp_path) == [destination]
     assert not list(destination.parent.glob(".session=SPR.backup-*"))
     assert rider_summary(load_laps(destination)).iloc[0]["rider"] == "Marc MARQUEZ"
@@ -303,8 +319,10 @@ def test_streamlit_dashboard_smoke(tmp_path: Path, synthetic_session, monkeypatc
     app = AppTest.from_file(ROOT / "dashboard" / "app.py").run(timeout=30)
     assert not app.exception
     assert len(app.tabs) == 4
-    assert app.toggle[0].label == "Use race time format"
-    assert not app.toggle[0].value
+    assert app.toggle("exclude_incomplete_riders").label == "Exclude incomplete riders"
+    assert not app.toggle("exclude_incomplete_riders").value
+    assert app.toggle("race_time_format").label == "Use race time format"
+    assert not app.toggle("race_time_format").value
 
     comparison = next(
         frame.value for frame in app.dataframe if "fastest (seconds)" in frame.value.index
@@ -321,10 +339,78 @@ def test_streamlit_dashboard_smoke(tmp_path: Path, synthetic_session, monkeypatc
     ]
     assert comparison.loc["fastest (seconds)", "Marc MARQUEZ"] == "97.900"
 
-    app = app.toggle[0].set_value(True).run(timeout=30)
+    app = app.toggle("race_time_format").set_value(True).run(timeout=30)
     assert not app.exception
     race_comparison = next(
         frame.value for frame in app.dataframe if "fastest (race format)" in frame.value.index
     )
     assert "iqr (race format)" in race_comparison.index
     assert race_comparison.loc["fastest (race format)", "Marc MARQUEZ"] == "1'37.900"
+
+    app = app.toggle("exclude_incomplete_riders").set_value(True).run(timeout=30)
+    assert not app.exception
+    assert app.multiselect[0].options == ["Marc MARQUEZ"]
+    assert any("requires two riders" in info.value for info in app.info)
+
+
+def test_dashboard_separates_event_and_session_navigation(
+    tmp_path: Path, synthetic_session, monkeypatch
+) -> None:
+    def variant(event: str, session: str, lap_offset: float = 0.0):
+        laps = synthetic_session.laps.assign(event=event, session=session).copy()
+        laps["lap_time_seconds"] += lap_offset
+        return replace(
+            synthetic_session,
+            event=event,
+            session=session,
+            observed_session=session,
+            laps=laps,
+            runs=synthetic_session.runs.assign(event=event, session=session),
+            partials=synthetic_session.partials.assign(event=event, session=session),
+        )
+
+    save_session(variant("SPA", "SPR"), tmp_path)
+    save_session(variant("SPA", "RAC", 10.0), tmp_path)
+    save_session(variant("ARA", "FP1", 20.0), tmp_path)
+    save_session(variant("ARA", "RAC", 20.0), tmp_path)
+    save_session(variant("NED", "RAC", 30.0), tmp_path)
+    monkeypatch.setenv("MOTOGP_DATA_ROOT", str(tmp_path))
+
+    app = AppTest.from_file(ROOT / "dashboard" / "app.py")
+    app.query_params = {"event": "2025-spa", "session": "SPR"}
+    app.run(timeout=30)
+
+    event_selector = app.selectbox("selected_event")
+    assert set(event_selector.options) == {
+        "2025 Netherlands",
+        "2025 Spain - Jerez",
+        "2025 Spain - MotorLand Aragon",
+    }
+    assert event_selector.value == "2025-spa"
+    session_selector = app.segmented_control("selected_session")
+    assert session_selector.options == ["Sprint", "Race"]
+    assert session_selector.value == "SPR"
+    assert app.query_params == {"event": ["2025-spa"], "session": ["SPR"]}
+    assert not any("sector-ribbon" in item.value for item in app.markdown)
+    assert any("1&#x27;37.900" in item.value for item in app.markdown)
+
+    app = session_selector.set_value(None).run(timeout=30)
+    assert not app.exception
+    assert app.segmented_control("selected_session").value == "SPR"
+    assert app.query_params == {"event": ["2025-spa"], "session": ["SPR"]}
+
+    app.query_params = {"event": "2025-ara", "session": "FP1"}
+    app.run(timeout=30)
+    assert not app.exception
+    assert app.selectbox("selected_event").value == "2025-ara"
+    assert app.segmented_control("selected_session").value == "FP1"
+    assert app.query_params == {"event": ["2025-ara"], "session": ["FP1"]}
+    assert any("1&#x27;57.900" in item.value for item in app.markdown)
+
+    app = app.selectbox("selected_event").set_value("2025-spa").run(timeout=30)
+    assert app.segmented_control("selected_session").value == "RAC"
+    assert any("1&#x27;47.900" in item.value for item in app.markdown)
+    app = app.segmented_control("selected_session").set_value("SPR").run(timeout=30)
+    assert not app.exception
+    assert app.query_params == {"event": ["2025-spa"], "session": ["SPR"]}
+    assert any("1&#x27;37.900" in item.value for item in app.markdown)

@@ -50,12 +50,15 @@ session mismatch.
 
 ## Sidebar Controls
 
-### Session
+### Event
 
-Selects the championship year, event, and session to analyze. The label format is:
+Selects the championship year and race to analyze. A country with one race uses the country
+name; multiple races in the same country add the circuit name:
 
 ```text
-2025 / SPA / SPR
+2025 Netherlands
+2025 Spain - Jerez
+2025 Spain - MotorLand Aragon
 ```
 
 ### Pace View
@@ -68,6 +71,25 @@ Selects the championship year, event, and session to analyze. The label format i
 Sector potential always uses complete, officially valid timing observations, even when the
 pace view is `raw`. This prevents pit or cancelled sectors from creating impossible
 theoretical laps.
+
+### Exclude Incomplete Riders
+
+This toggle appears only for Sprint and Grand Prix sessions and is off by default. Enable it to
+keep riders whose numbered-lap count matches the full observed race distance. The filter applies
+to all performance cards, charts, and comparisons; Data Quality continues to report the complete
+source session.
+
+## Session Tabs
+
+The horizontal **Session** control above the summary cards shows only sessions available for
+the selected event, such as **FP1**, **Practice**, **Q1**, **Sprint**, and **Race**. Changing the
+event defaults to **Race** when available, then **FP1**, then the first available session.
+
+Event and session state use separate URL parameters, so a specific view can be bookmarked:
+
+```text
+?event=2025-spa&session=SPR
+```
 
 ## Summary Cards
 

@@ -36,7 +36,7 @@ POSITION_RE = re.compile(r"^(\d+)(?:st|nd|rd|th)$")
 TYRE_RE = re.compile(r"^(?:Slick|Wet)-")
 EVENT_TITLE_MARKERS = {
     "SPA": "GRAND PRIX OF SPAIN",
-    "FRA": "GRAND PRIX OF FRANCE",
+    "FRA": "GRAND PRIX DE FRANCE",
     "HUN": "GRAND PRIX OF HUNGARY",
 }
 COLUMN_SPLIT = 297.5

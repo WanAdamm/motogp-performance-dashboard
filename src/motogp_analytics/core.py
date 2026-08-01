@@ -17,6 +17,7 @@ from ._analytics import matched_lap_deltas as matched_lap_deltas
 from ._analytics import pace_leaders as pace_leaders
 from ._analytics import rider_summary as rider_summary
 from ._analytics import sector_deficits as sector_deficits
+from ._analytics import select_full_session_riders as select_full_session_riders
 from ._analytics import select_scope as select_scope
 from ._classification import LAP_SCHEMA as LAP_SCHEMA
 from ._contracts import EVENT_RE as EVENT_RE

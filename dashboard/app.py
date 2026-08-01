@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import os
+from collections import Counter
 from pathlib import Path
 
 import pandas as pd
@@ -19,6 +20,7 @@ from motogp_analytics import (
     pace_leaders,
     rider_summary,
     sector_deficits,
+    select_full_session_riders,
     select_scope,
 )
 
@@ -37,6 +39,39 @@ st.markdown(DASHBOARD_CSS, unsafe_allow_html=True)
 DATA_ROOT = Path(os.environ.get("MOTOGP_DATA_ROOT", "data"))
 CONSTRUCTOR_COLORS, TRACE_COLORS, SECTOR_COLORS = chart_colors(THEME_NAME, THEME)
 
+SESSION_ORDER = ("FP1", "PR", "FP2", "FP3", "Q", "Q1", "Q2", "SPR", "WUP", "RAC")
+SESSION_LABELS = {
+    "PR": "Practice",
+    "Q": "Qualifying",
+    "SPR": "Sprint",
+    "WUP": "Warm Up",
+    "RAC": "Race",
+}
+EVENT_VENUES = {
+    "THA": ("Thailand", "Buriram"),
+    "ARG": ("Argentina", "Termas de Rio Hondo"),
+    "AME": ("USA", "COTA"),
+    "QAT": ("Qatar", "Lusail"),
+    "SPA": ("Spain", "Jerez"),
+    "FRA": ("France", "Le Mans"),
+    "GBR": ("Great Britain", "Silverstone"),
+    "ARA": ("Spain", "MotorLand Aragon"),
+    "ITA": ("Italy", "Mugello"),
+    "NED": ("Netherlands", "Assen"),
+    "GER": ("Germany", "Sachsenring"),
+    "CZE": ("Czechia", "Brno"),
+    "AUT": ("Austria", "Red Bull Ring"),
+    "HUN": ("Hungary", "Balaton Park"),
+    "CAT": ("Spain", "Barcelona-Catalunya"),
+    "RSM": ("San Marino", "Misano"),
+    "JPN": ("Japan", "Motegi"),
+    "INA": ("Indonesia", "Mandalika"),
+    "AUS": ("Australia", "Phillip Island"),
+    "MAL": ("Malaysia", "Sepang"),
+    "POR": ("Portugal", "Portimao"),
+    "VAL": ("Spain", "Ricardo Tormo"),
+}
+
 
 @st.cache_data(show_spinner=False)
 def read_laps(path: str, modified: float) -> pd.DataFrame:
@@ -48,9 +83,11 @@ def session_values(path: Path) -> dict[str, str]:
     return {part.split("=", 1)[0]: part.split("=", 1)[1] for part in path.parts if "=" in part}
 
 
-def session_label(path: Path) -> str:
-    values = session_values(path)
-    return f"{values['year']}  /  {values['event']}  /  {values['session']}"
+def default_session(sessions: list[str]) -> str:
+    for preferred in ("RAC", "FP1"):
+        if preferred in sessions:
+            return preferred
+    return sessions[0]
 
 
 def timing_card(label: str, value: str, detail: str, tone: str = "") -> None:
@@ -87,29 +124,126 @@ if not sessions:
     st.code("uv run motogp-analytics ingest --year 2025 --event SPA --session SPR")
     st.stop()
 
+event_sessions: dict[str, dict[str, Path]] = {}
+event_values: dict[str, tuple[str, str]] = {}
+for path in sessions:
+    values = session_values(path)
+    event_id = f"{values['year']}-{values['event'].lower()}"
+    event_sessions.setdefault(event_id, {})[values["session"]] = path
+    event_values[event_id] = (values["year"], values["event"])
+
+event_venues = {
+    event_id: EVENT_VENUES.get(event, (event, event))
+    for event_id, (_, event) in event_values.items()
+}
+country_counts = Counter(
+    (event_values[event_id][0], country) for event_id, (country, _) in event_venues.items()
+)
+event_names = {
+    event_id: (
+        f"{country} - {track}"
+        if country_counts[(event_values[event_id][0], country)] > 1
+        else country
+    )
+    for event_id, (country, track) in event_venues.items()
+}
+event_labels = {
+    event_id: f"{event_values[event_id][0]} {event_names[event_id]}" for event_id in event_sessions
+}
+event_ids = list(event_sessions)
+
+requested_event = st.query_params.get("event")
+requested_event = requested_event.lower() if requested_event else None
+requested_session = st.query_params.get("session")
+requested_session = requested_session.upper() if requested_session else None
+initial_event = requested_event if requested_event in event_sessions else event_ids[0]
+query_state = (requested_event, requested_session)
+previous_query_state = st.session_state.get("_query_state")
+query_changed = previous_query_state is not None and query_state != previous_query_state
+event_index = event_ids.index(initial_event)
+if query_changed:
+    st.session_state["selected_event"] = initial_event
+    event_index = None
+
 with st.sidebar:
     st.markdown('<div class="data-label">Timing feed</div>', unsafe_allow_html=True)
-    selected_path = st.selectbox("Session", sessions, format_func=session_label)
+    selected_event_id = st.selectbox(
+        "Event",
+        event_ids,
+        index=event_index,
+        format_func=event_labels.__getitem__,
+        key="selected_event",
+    )
+    available_sessions = sorted(
+        event_sessions[selected_event_id],
+        key=lambda code: SESSION_ORDER.index(code) if code in SESSION_ORDER else len(SESSION_ORDER),
+    )
+    event_changed = st.session_state.get("_session_event") != selected_event_id
+    query_controls_state = previous_query_state is None or query_changed
+    if event_changed:
+        linked_session = (
+            requested_session
+            if query_controls_state and requested_event == selected_event_id
+            else None
+        )
+        st.session_state["selected_session"] = (
+            linked_session
+            if linked_session in available_sessions
+            else default_session(available_sessions)
+        )
+        st.session_state["_session_event"] = selected_event_id
+    elif query_changed:
+        st.session_state["selected_session"] = (
+            requested_session
+            if requested_session in available_sessions
+            else default_session(available_sessions)
+        )
+    elif st.session_state.get("selected_session") not in available_sessions:
+        previous_session = st.session_state.get("_last_session")
+        st.session_state["selected_session"] = (
+            previous_session
+            if previous_session in available_sessions
+            else default_session(available_sessions)
+        )
+
+    selected_session = st.session_state["selected_session"]
+    st.session_state["_last_session"] = selected_session
+    selected_path = event_sessions[selected_event_id][selected_session]
+    session = session_values(selected_path)
     scope = st.radio("Pace view", ["clean", "raw"], horizontal=True)
+    exclude_incomplete_riders = False
+    if selected_session in {"SPR", "RAC"}:
+        exclude_incomplete_riders = st.toggle(
+            "Exclude incomplete riders",
+            help="Keep only riders who recorded every lap of the Sprint or Grand Prix distance.",
+            key="exclude_incomplete_riders",
+        )
     st.caption(
         "Clean excludes opening, out, pit, cancelled, incomplete, and anomalously slow laps."
     )
     st.caption("Sector potential always uses complete, officially valid timing observations.")
 
+if requested_event != selected_event_id:
+    st.query_params["event"] = selected_event_id
+if requested_session != selected_session:
+    st.query_params["session"] = selected_session
+st.session_state["_query_state"] = (selected_event_id, selected_session)
+
 metadata = load_session_metadata(selected_path)
 laps_path = selected_path / "laps.parquet"
 laps = read_laps(str(selected_path), laps_path.stat().st_mtime)
-summary = rider_summary(laps, scope=scope)
-selected_laps = select_scope(laps, scope)
-session = session_values(selected_path)
+analysis_laps = select_full_session_riders(laps) if exclude_incomplete_riders else laps
+summary = rider_summary(analysis_laps, scope=scope)
+selected_laps = select_scope(analysis_laps, scope)
+session_display = SESSION_LABELS.get(selected_session, selected_session).upper()
 
 st.markdown(
     f"""
     <div class="hero">
-        <div class="session-stamp">
-            <div class="stamp-event">{html.escape(session["event"])} · MotoGP</div>
-            <div class="stamp-session">{html.escape(session["session"])}</div>
-            <div class="stamp-year">{html.escape(session["year"])}</div>
+         <div class="session-stamp">
+             <div class="stamp-event">{html.escape(event_names[selected_event_id])} · MotoGP</div>
+             <div class="stamp-session">{html.escape(session_display)}</div>
+             <div class="stamp-year">{html.escape(session["year"])}</div>
         </div>
         <div class="hero-copy">
             <div class="hero-kicker">Performance analysis · {html.escape(scope)} pace</div>
@@ -121,14 +255,18 @@ st.markdown(
             <path d="M18 166 C122 30, 238 188, 344 76 S526 30, 622 112"
                   fill="none" stroke="{THEME["cobalt"]}" stroke-width="5" />
             <circle cx="622" cy="112" r="9" fill="{THEME["kerb_red"]}" />
-        </svg>
-    </div>
-    <div class="sector-ribbon">
-        <span>SECTOR · T1</span><span>SECTOR · T2</span>
-        <span>SECTOR · T3</span><span>SECTOR · T4</span>
-    </div>
-    """,
+         </svg>
+     </div>
+     """,
     unsafe_allow_html=True,
+)
+
+st.segmented_control(
+    "Session",
+    available_sessions,
+    format_func=lambda code: SESSION_LABELS.get(code, code),
+    key="selected_session",
+    width="stretch",
 )
 
 if summary.empty:
@@ -261,6 +399,7 @@ with compare_tab:
         race_time_format = st.toggle(
             "Use race time format",
             help="Off displays timing values in seconds.",
+            key="race_time_format",
         )
         comparison = summary[summary["rider"].isin([rider_a, rider_b])].set_index("rider")
         comparison = comparison[

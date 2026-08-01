@@ -14,6 +14,7 @@ from .core import (
     parse_time,
     rider_summary,
     sector_deficits,
+    select_full_session_riders,
     select_scope,
 )
 
@@ -31,5 +32,6 @@ __all__ = [
     "parse_time",
     "rider_summary",
     "sector_deficits",
+    "select_full_session_riders",
     "select_scope",
 ]

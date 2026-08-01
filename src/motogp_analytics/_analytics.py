@@ -114,6 +114,17 @@ def select_scope(laps: pd.DataFrame, scope: str) -> pd.DataFrame:
     raise ValueError("Scope must be 'clean' or 'raw'")
 
 
+def select_full_session_riders(laps: pd.DataFrame) -> pd.DataFrame:
+    """Keep riders with every numbered lap of the observed session distance."""
+
+    if laps.empty:
+        return laps.copy()
+    session_distance = int(laps["lap"].max())
+    rider_lap_counts = laps.groupby("rider_number")["lap"].nunique()
+    completed = rider_lap_counts[rider_lap_counts == session_distance].index
+    return laps[laps["rider_number"].isin(completed)].copy()
+
+
 def format_time(seconds: float | None) -> str:
     """Format numeric seconds using standard motorsport timing notation."""
 

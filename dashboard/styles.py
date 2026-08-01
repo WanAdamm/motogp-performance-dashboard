@@ -266,35 +266,57 @@ p, label, [data-testid="stMarkdownContainer"] {
     line-height: 1;
 }
 .timing-card .detail { margin-top: .45rem; color: var(--muted); font-size: .78rem; }
-.sector-ribbon {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1px;
+[data-testid="stSegmentedControl"],
+[data-testid="stButtonGroup"] {
     margin: .85rem 0 1.45rem;
+}
+[data-testid="stSegmentedControl"] > label,
+[data-testid="stButtonGroup"] > label {
+    color: var(--cobalt);
+    font: 700 .7rem/1 "Cascadia Mono", Consolas, monospace;
+    letter-spacing: .17em;
+    text-transform: uppercase;
+}
+[data-testid="stSegmentedControl"] [role="radiogroup"],
+[data-testid="stButtonGroup"] [role="radiogroup"] {
+    display: flex;
+    width: 100%;
+    flex-wrap: nowrap !important;
+    gap: 1px;
     padding: 1px;
+    border: 0;
+    border-bottom: 4px solid var(--instrument);
+    border-radius: 0;
     background: var(--line);
 }
-.sector-ribbon span {
-    position: relative;
-    padding: .65rem .7rem .58rem;
+[data-testid="stSegmentedControl"] button,
+[data-testid="stSegmentedControl"] [role="radio"],
+[data-testid="stButtonGroup"] button,
+[data-testid="stButtonGroup"] [role="radio"] {
+    flex: 1 1 0;
+    min-width: 5rem;
+    min-height: 45px;
+    border: 0;
+    border-radius: 0;
     background: var(--sheet);
     color: var(--muted);
-    font: 700 .66rem/1 "Cascadia Mono", Consolas, monospace;
-    letter-spacing: .12em;
-    text-align: center;
+    font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .04em;
 }
-.sector-ribbon span::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 4px;
-    background: var(--cobalt);
+[data-testid="stSegmentedControl"] button[aria-pressed="true"],
+[data-testid="stSegmentedControl"] [role="radio"][aria-checked="true"],
+[data-testid="stButtonGroup"] button[aria-pressed="true"],
+[data-testid="stButtonGroup"] [role="radio"][aria-checked="true"] {
+    background: var(--instrument);
+    color: var(--on-instrument);
+    box-shadow: inset 0 -4px 0 var(--cobalt);
 }
-.sector-ribbon span:nth-child(2)::before { background: var(--sector-blue); }
-.sector-ribbon span:nth-child(3)::before { background: var(--signal-yellow); }
-.sector-ribbon span:nth-child(4)::before { background: var(--kerb-red); }
+[data-testid="stSegmentedControl"] button p,
+[data-testid="stSegmentedControl"] [role="radio"] p,
+[data-testid="stButtonGroup"] button p,
+[data-testid="stButtonGroup"] [role="radio"] p { color: inherit; }
 div[data-testid="stMetric"] {
     padding: .8rem 1rem;
     background: var(--sheet);
@@ -359,7 +381,12 @@ button[data-baseweb="tab"][aria-selected="true"] p { color: var(--on-instrument)
     .hero h1 { font-size: clamp(2.45rem, 14vw, 4rem); }
     .hero-trace { display: none; }
     .hero-empty { padding: 1.5rem 1.15rem; }
-    .sector-ribbon { grid-template-columns: repeat(2, 1fr); }
+    [data-testid="stSegmentedControl"] [role="radiogroup"],
+    [data-testid="stButtonGroup"] [role="radiogroup"] { overflow-x: auto; }
+    [data-testid="stSegmentedControl"] button,
+    [data-testid="stSegmentedControl"] [role="radio"],
+    [data-testid="stButtonGroup"] button,
+    [data-testid="stButtonGroup"] [role="radio"] { flex: 0 0 auto; white-space: nowrap; }
     div[data-baseweb="tab-list"] { overflow-x: auto; flex-wrap: nowrap; }
     button[data-baseweb="tab"] { white-space: nowrap; }
 }
