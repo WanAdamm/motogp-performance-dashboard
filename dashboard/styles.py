@@ -137,7 +137,7 @@ p, label, [data-testid="stMarkdownContainer"] {
 }
 .hero {
     position: relative;
-    display: grid;
+    display: flex;
     grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
     min-height: 275px;
     overflow: hidden;
