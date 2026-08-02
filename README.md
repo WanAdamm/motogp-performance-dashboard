@@ -1,5 +1,10 @@
 # MotoGP Performance Analytics Platform
 
+Public portfolio: [2025 Spanish Sprint static analysis](https://wanadamm.github.io/motogp-performance-dashboard/)
+
+The GitHub Pages site is a curated, aggregate-only snapshot. The complete interactive
+Streamlit dashboard remains available through the local workflow below.
+
 ## MVP Status
 
 The MVP implements the complete local workflow:
