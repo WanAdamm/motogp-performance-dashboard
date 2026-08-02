@@ -10,6 +10,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from dashboard.circuits import CIRCUITS, circuit_image_uri
 from dashboard.styles import DASHBOARD_CSS, chart_colors, chart_layout, get_theme, theme_css
 from motogp_analytics import (
     discover_sessions,
@@ -46,30 +47,6 @@ SESSION_LABELS = {
     "SPR": "Sprint",
     "WUP": "Warm Up",
     "RAC": "Race",
-}
-EVENT_VENUES = {
-    "THA": ("Thailand", "Buriram"),
-    "ARG": ("Argentina", "Termas de Rio Hondo"),
-    "AME": ("USA", "COTA"),
-    "QAT": ("Qatar", "Lusail"),
-    "SPA": ("Spain", "Jerez"),
-    "FRA": ("France", "Le Mans"),
-    "GBR": ("Great Britain", "Silverstone"),
-    "ARA": ("Spain", "MotorLand Aragon"),
-    "ITA": ("Italy", "Mugello"),
-    "NED": ("Netherlands", "Assen"),
-    "GER": ("Germany", "Sachsenring"),
-    "CZE": ("Czechia", "Brno"),
-    "AUT": ("Austria", "Red Bull Ring"),
-    "HUN": ("Hungary", "Balaton Park"),
-    "CAT": ("Spain", "Barcelona-Catalunya"),
-    "RSM": ("San Marino", "Misano"),
-    "JPN": ("Japan", "Motegi"),
-    "INA": ("Indonesia", "Mandalika"),
-    "AUS": ("Australia", "Phillip Island"),
-    "MAL": ("Malaysia", "Sepang"),
-    "POR": ("Portugal", "Portimao"),
-    "VAL": ("Spain", "Ricardo Tormo"),
 }
 
 
@@ -133,7 +110,9 @@ for path in sessions:
     event_values[event_id] = (values["year"], values["event"])
 
 event_venues = {
-    event_id: EVENT_VENUES.get(event, (event, event))
+    event_id: (
+        (CIRCUITS[event].country, CIRCUITS[event].venue) if event in CIRCUITS else (event, event)
+    )
     for event_id, (_, event) in event_values.items()
 }
 country_counts = Counter(
@@ -236,6 +215,24 @@ analysis_laps = select_full_session_riders(laps) if exclude_incomplete_riders el
 summary = rider_summary(analysis_laps, scope=scope)
 selected_laps = select_scope(analysis_laps, scope)
 session_display = SESSION_LABELS.get(selected_session, selected_session).upper()
+event_code = event_values[selected_event_id][1]
+circuit = CIRCUITS.get(event_code)
+circuit_uri = circuit_image_uri(event_code, THEME["graphite"], THEME["cobalt"])
+if circuit and circuit_uri:
+    circuit_map = f"""
+        <figure class="hero-circuit">
+            <img src="{circuit_uri}" alt="{html.escape(circuit.venue)} circuit layout" />
+            <figcaption>
+                <span class="circuit-name">{html.escape(circuit.venue)} circuit</span>
+                <span class="circuit-credit">Artwork: <a href="{html.escape(circuit.source_url)}"
+                      target="_blank" rel="noopener noreferrer">{html.escape(circuit.credit)}</a>
+                      · <a href="{html.escape(circuit.license_url)}" target="_blank"
+                      rel="noopener noreferrer">{html.escape(circuit.license_name)}</a></span>
+            </figcaption>
+        </figure>
+    """
+else:
+    circuit_map = '<div class="hero-circuit-unavailable">Circuit map unavailable</div>'
 
 st.markdown(
     f"""
@@ -247,15 +244,10 @@ st.markdown(
         </div>
         <div class="hero-copy">
             <div class="hero-kicker">Performance analysis · {html.escape(scope)} pace</div>
-            <h1><span>The result shows where.</span><strong>Pace shows why.</strong></h1>
+            <div>{circuit_map}</div>
             <p>Compare repeatable lap speed, sector contribution, and execution potential from
             the official timing analysis.</p>
         </div>
-        <svg class="hero-trace" viewBox="0 0 640 200" aria-hidden="true">
-            <path d="M18 166 C122 30, 238 188, 344 76 S526 30, 622 112"
-                  fill="none" stroke="{THEME["cobalt"]}" stroke-width="5" />
-            <circle cx="622" cy="112" r="9" fill="{THEME["kerb_red"]}" />
-         </svg>
      </div>
      """,
     unsafe_allow_html=True,

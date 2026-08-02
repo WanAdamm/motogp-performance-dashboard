@@ -185,6 +185,7 @@ p, label, [data-testid="stMarkdownContainer"] {
     position: relative;
     z-index: 2;
     align-self: center;
+    min-width: 0;
     padding: 2.15rem clamp(2rem, 5vw, 5.8rem) 2.2rem;
 }
 .hero-kicker, .data-label {
@@ -212,15 +213,46 @@ p, label, [data-testid="stMarkdownContainer"] {
     font-size: .96rem;
     line-height: 1.55;
 }
-.hero-trace {
-    position: absolute;
-    z-index: 1;
-    right: -20px;
-    bottom: -22px;
-    width: min(48vw, 620px);
-    height: 190px;
-    opacity: .23;
-    pointer-events: none;
+.hero-circuit {
+    width: min(100%, 760px);
+    margin: .65rem 0 0;
+}
+.hero-circuit img {
+    display: block;
+    width: 100%;
+    height: clamp(128px, 11vw, 165px);
+    object-fit: contain;
+    object-position: left center;
+    filter: drop-shadow(4px 5px 0 var(--soft-shadow));
+}
+.hero-circuit figcaption {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .75rem 1.25rem;
+    margin-top: .35rem;
+    color: var(--muted);
+    font: 650 .58rem/1.35 "Cascadia Mono", Consolas, monospace;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+.circuit-name {
+    flex: 0 0 auto;
+    color: var(--graphite);
+    font-weight: 750;
+}
+.circuit-credit { text-align: right; }
+.circuit-credit a {
+    color: var(--muted);
+    text-decoration-color: var(--line);
+    text-underline-offset: 2px;
+}
+.hero-circuit-unavailable {
+    margin: 1.25rem 0;
+    color: var(--muted);
+    font: 700 .72rem/1 "Cascadia Mono", Consolas, monospace;
+    letter-spacing: .12em;
+    text-transform: uppercase;
 }
 .hero-empty {
     display: block;
@@ -363,7 +395,6 @@ button[data-baseweb="tab"][aria-selected="true"] p { color: var(--on-instrument)
 @media (max-width: 980px) {
     .hero { grid-template-columns: 165px minmax(0, 1fr); }
     .hero-copy { padding-left: 2rem; padding-right: 2rem; }
-    .hero-trace { opacity: .14; }
 }
 @media (max-width: 720px) {
     .block-container { padding: 1rem .85rem 2rem; }
@@ -379,7 +410,13 @@ button[data-baseweb="tab"][aria-selected="true"] p { color: var(--on-instrument)
     .stamp-year { text-align: right; }
     .hero-copy { padding: 1.5rem 1.15rem 1.7rem; }
     .hero h1 { font-size: clamp(2.45rem, 14vw, 4rem); }
-    .hero-trace { display: none; }
+    .hero-circuit { width: 100%; }
+    .hero-circuit img {
+        height: clamp(155px, 48vw, 220px);
+        object-position: center;
+    }
+    .hero-circuit figcaption { align-items: flex-start; flex-direction: column; }
+    .circuit-credit { text-align: left; }
     .hero-empty { padding: 1.5rem 1.15rem; }
     [data-testid="stSegmentedControl"] [role="radiogroup"],
     [data-testid="stButtonGroup"] [role="radiogroup"] { overflow-x: auto; }
